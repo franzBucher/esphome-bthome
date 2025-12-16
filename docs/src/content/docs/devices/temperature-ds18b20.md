@@ -22,14 +22,28 @@ A waterproof temperature sensor using DS18B20 probe, ideal for outdoor, liquid, 
 
 **Important**: Add a 4.7kΩ resistor between Data (Yellow) and VCC (Red).
 
-```
-3V3 ──┬── Red (VCC)
-      │
-     [4.7k]
-      │
-D2 ──┴── Yellow (Data)
+```mermaid
+graph LR
+    subgraph XIAO["Seeed XIAO BLE"]
+        V3["3V3"]
+        D2["D2 (Pin 2)"]
+        GND["GND"]
+    end
 
-GND ───── Black (GND)
+    subgraph DS18B20["DS18B20 Probe"]
+        RED["Red (VCC)"]
+        YELLOW["Yellow (Data)"]
+        BLACK["Black (GND)"]
+    end
+
+    V3 --- RED
+    V3 --- R["4.7kΩ"]
+    R --- YELLOW
+    D2 --- YELLOW
+    GND --- BLACK
+
+    style R fill:#ff9,stroke:#333
+    style DS18B20 fill:#e6f3ff,stroke:#333
 ```
 
 ## Configuration

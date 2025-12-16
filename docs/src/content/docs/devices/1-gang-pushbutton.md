@@ -19,6 +19,33 @@ A battery-efficient single pushbutton using nRF52 that broadcasts button presses
 | Battery+ | BAT+ |
 | Battery- | BAT- |
 
+```mermaid
+graph TD
+    subgraph XIAO["Seeed XIAO BLE"]
+        D2["D2 (Pin 2)"]
+        GND["GND"]
+        BATP["BAT+"]
+        BATN["BAT-"]
+    end
+
+    subgraph Button["Pushbutton"]
+        BTN["Momentary<br/>Switch"]
+    end
+
+    subgraph Battery["LiPo Battery"]
+        VBAT["3.7V +"]
+        GBAT["GND -"]
+    end
+
+    BTN --- D2
+    BTN --- GND
+    VBAT --- BATP
+    GBAT --- BATN
+
+    style Button fill:#e6f3ff,stroke:#333
+    style Battery fill:#ffe6e6,stroke:#333
+```
+
 ## Configuration
 
 ```yaml

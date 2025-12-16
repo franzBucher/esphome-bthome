@@ -20,6 +20,30 @@ A comprehensive environmental sensor using BME680 that broadcasts temperature, h
 | SDA | D4 (pin 4) |
 | SCL | D5 (pin 5) |
 
+```mermaid
+graph LR
+    subgraph XIAO["Seeed XIAO BLE"]
+        V3["3V3"]
+        GND["GND"]
+        D4["D4 (SDA)"]
+        D5["D5 (SCL)"]
+    end
+
+    subgraph BME680["BME680 Sensor"]
+        VIN["VIN"]
+        SGND["GND"]
+        SDA["SDA"]
+        SCL["SCL"]
+    end
+
+    V3 --- VIN
+    GND --- SGND
+    D4 --- SDA
+    D5 --- SCL
+
+    style BME680 fill:#e6ffe6,stroke:#333
+```
+
 ## Configuration
 
 ```yaml

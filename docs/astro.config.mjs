@@ -48,6 +48,18 @@ export default defineConfig({
         baseUrl: 'https://github.com/dz0ny/esphome-bthome/edit/main/docs/',
       },
       customCss: ['./src/styles/custom.css'],
+      head: [
+        {
+          tag: 'script',
+          attrs: {
+            type: 'module',
+          },
+          content: `
+            import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+            mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+          `,
+        },
+      ],
     }),
   ],
 });

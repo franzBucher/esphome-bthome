@@ -22,24 +22,52 @@ A battery-efficient dual switch using nRF52 that broadcasts both switch states v
 | Battery+ | BAT+ |
 | Battery- | BAT- |
 
+### Wiring Diagram
+
+```mermaid
+graph TD
+    subgraph XIAO["Seeed XIAO BLE"]
+        D2["D2 (Pin 2)"]
+        D3["D3 (Pin 3)"]
+        D4["D4 (Pin 4)"]
+        V3["3V3"]
+        GND["GND"]
+    end
+
+    subgraph Switches
+        SW1["Switch 1"]
+        SW2["Switch 2"]
+    end
+
+    subgraph Battery["LiPo Battery"]
+        BATP["BAT+"]
+        BATN["BAT-"]
+    end
+
+    SW1 --- D2
+    SW1 --- GND
+    SW2 --- D3
+    SW2 --- GND
+```
+
 ### Wakeup Circuit
 
 Wire both switch outputs to the wakeup pin using diodes to create an OR gate:
 
-```
-        D2 (Switch 1)
-            │
-           ─┴─
-            ▲  1N4148
-           ─┬─
-            │
-            ├──────── D4 (Wakeup) ── 10kΩ ── 3V3
-            │
-           ─┴─
-            ▲  1N4148
-           ─┬─
-            │
-        D3 (Switch 2)
+```mermaid
+graph LR
+    subgraph Wakeup["Diode OR Gate"]
+        D2["D2<br/>(Switch 1)"] --> DIODE1["1N4148<br/>▶|"]
+        D3["D3<br/>(Switch 2)"] --> DIODE2["1N4148<br/>▶|"]
+        DIODE1 --> D4["D4<br/>(Wakeup)"]
+        DIODE2 --> D4
+        D4 --> R["10kΩ"]
+        R --> V3["3V3"]
+    end
+
+    style D4 fill:#f96,stroke:#333
+    style DIODE1 fill:#fff,stroke:#333
+    style DIODE2 fill:#fff,stroke:#333
 ```
 
 When either switch is pressed (pulls to GND), D4 goes LOW and wakes the device.

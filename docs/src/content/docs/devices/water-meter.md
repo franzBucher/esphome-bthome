@@ -22,6 +22,28 @@ Common water meters output 1 pulse per liter or 1 pulse per 10 liters.
 
 Most water meter pulse outputs are open-drain/open-collector, so we use the internal pull-up.
 
+```mermaid
+graph LR
+    subgraph XIAO["Seeed XIAO BLE"]
+        D2["D2 (Pin 2)"]
+        GND["GND"]
+        V3["3V3"]
+    end
+
+    subgraph Meter["Water Meter"]
+        PULSE["Pulse Output<br/>(Open Drain)"]
+        MGND["GND"]
+    end
+
+    D2 --- PULSE
+    D2 -.- PULLUP["Internal<br/>Pull-up"]
+    PULLUP -.- V3
+    GND --- MGND
+
+    style Meter fill:#e6f3ff,stroke:#333
+    style PULLUP fill:#fff,stroke:#999,stroke-dasharray: 5 5
+```
+
 ## Configuration
 
 ```yaml
