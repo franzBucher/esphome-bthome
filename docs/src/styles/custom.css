@@ -9,3 +9,12 @@
 .expressive-code pre {
   border-radius: 0.5rem;
 }
+
+/* Always show sidebar, including on splash pages */
+[data-has-sidebar] .sidebar-pane {
+  display: flex;
+}
+
+[data-has-sidebar] nav.sidebar {
+  display: flex;
+}
