@@ -15,7 +15,10 @@
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:github.com)",
       "WebSearch",
-      "Bash(flutter analyze:*)"
+      "Bash(flutter analyze:*)",
+      "WebFetch(domain:bthome.io)",
+      "WebFetch(domain:esphome.io)",
+      "Bash(ls:*)"
     ]
   }
 }

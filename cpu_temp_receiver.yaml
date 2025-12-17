@@ -1,0 +1,72 @@
+# BTHome CPU Temperature Receiver
+# Receives CPU temperature from a BTHome broadcaster (e.g., cpu_temp_esp32.yaml)
+# and exposes it to Home Assistant via the ESPHome API
+#
+# To use:
+# 1. Flash the cpu_temp_esp32.yaml to one ESP32 (the broadcaster)
+# 2. Find the broadcaster's MAC address from ESPHome logs or BLE scanner
+# 3. Update the mac_address below with the actual MAC
+# 4. Flash this config to another ESP32 (the receiver)
+
+esphome:
+  name: bthome-cpu-temp-receiver
+  friendly_name: BTHome CPU Temp Receiver
+
+esp32:
+  board: seeed_xiao_esp32s3
+  framework:
+    type: esp-idf
+
+logger:
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+api:
+ota:
+  platform: esphome
+
+external_components:
+- source:
+    type: local
+    path: components
+  components: [ bthome_receiver ]
+
+# Enable BLE scanning to receive BTHome advertisements
+esp32_ble_tracker:
+  scan_parameters:
+    interval: 1100ms
+    window: 1100ms
+    active: false
+
+# Register the BTHome broadcaster device
+bthome_receiver:
+  devices:
+  # Replace with the actual MAC address of your cpu_temp_esp32 device
+  # You can find this in the ESPHome logs when the device boots:
+  # Look for "MAC Address: XX:XX:XX:XX:XX:XX"
+  - mac_address: "AA:BB:CC:DD:EE:FF"
+    name: "CPU Temp Broadcaster"
+
+# Receive the temperature sensor data
+sensor:
+- platform: bthome_receiver
+  mac_address: "AA:BB:CC:DD:EE:FF"
+  temperature:
+    name: "Remote CPU Temperature"
+    # Optional: Add filters or customize
+    filters:
+    - sliding_window_moving_average:
+        window_size: 3
+        send_every: 1
+
+# Also show receiver's own CPU temp for comparison
+- platform: internal_temperature
+  name: "Receiver CPU Temperature"
+  update_interval: 30s
+
+# Show signal strength from the broadcaster
+- platform: ble_rssi
+  mac_address: "AA:BB:CC:DD:EE:FF"
+  name: "Broadcaster Signal Strength"
