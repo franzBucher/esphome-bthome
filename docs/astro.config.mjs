@@ -15,9 +15,9 @@ export default defineConfig({
       plugins: [starlightThemeNext()],
       title: 'ESPHome BTHome',
       description: 'BTHome v2 BLE Protocol Component for ESPHome',
-      social: {
-        github: 'https://github.com/dz0ny/esphome-bthome',
-      },
+      social: [
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/dz0ny/esphome-bthome' },
+      ],
       expressiveCode: {
         themes: ['github-dark', 'github-light'],
         defaultProps: {
