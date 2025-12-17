@@ -41,6 +41,10 @@ export default defineConfig({
           autogenerate: { directory: 'platforms' },
         },
         {
+          label: 'Tools',
+          autogenerate: { directory: 'tools' },
+        },
+        {
           label: 'Devices',
           autogenerate: { directory: 'devices' },
         },
