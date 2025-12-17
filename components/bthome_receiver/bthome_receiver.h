@@ -3,7 +3,20 @@
 #include "esphome/core/component.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/automation.h"
-#include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+
+// Platform-specific includes based on BLE stack
+#ifdef USE_BTHOME_RECEIVER_NIMBLE
+  // NimBLE stack (lighter weight, observer-only)
+  #include "esp_nimble_hci.h"
+  #include "nimble/nimble_port.h"
+  #include "nimble/nimble_port_freertos.h"
+  #include "host/ble_hs.h"
+  #include "host/util/util.h"
+  #include <esp_bt.h>
+#elif defined(USE_BTHOME_RECEIVER_BLUEDROID)
+  // Bluedroid stack (default, via esp32_ble_tracker)
+  #include "esphome/components/esp32_ble_tracker/esp32_ble_tracker.h"
+#endif
 
 #ifdef USE_SENSOR
 #include "esphome/components/sensor/sensor.h"
@@ -221,21 +234,46 @@ class BTHomeDevice : public Parented<BTHomeReceiverHub> {
 // =============================================================================
 // BTHomeReceiverHub - Main component that receives BLE advertisements
 // =============================================================================
+#ifdef USE_BTHOME_RECEIVER_BLUEDROID
 class BTHomeReceiverHub : public Component, public esp32_ble_tracker::ESPBTDeviceListener {
+#else
+class BTHomeReceiverHub : public Component {
+#endif
  public:
   void setup() override;
   void dump_config() override;
+  void loop() override;
   float get_setup_priority() const override { return setup_priority::DATA; }
 
   // Register a device to monitor
   void register_device(BTHomeDevice *device);
 
+#ifdef USE_BTHOME_RECEIVER_BLUEDROID
   // ESPBTDeviceListener interface - called when BLE advertisement is received
   bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override;
+#endif
+
+#ifdef USE_BTHOME_RECEIVER_NIMBLE
+  // Process advertisement received via NimBLE
+  void process_nimble_advertisement(const struct ble_gap_disc_desc *disc);
+#endif
 
  protected:
   // Device registry (MAC address -> BTHomeDevice)
   std::map<uint64_t, BTHomeDevice *> devices_;
+
+#ifdef USE_BTHOME_RECEIVER_NIMBLE
+  // NimBLE-specific members
+  bool nimble_initialized_{false};
+  bool scanning_{false};
+  static BTHomeReceiverHub *instance_;  // For NimBLE callbacks
+  static void nimble_host_task_(void *param);
+  static void nimble_on_sync_();
+  static void nimble_on_reset_(int reason);
+  static int nimble_gap_event_(struct ble_gap_event *event, void *arg);
+  void start_scanning_();
+  void stop_scanning_();
+#endif
 };
 
 }  // namespace bthome_receiver

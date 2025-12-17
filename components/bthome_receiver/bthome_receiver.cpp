@@ -5,10 +5,19 @@
 #include <cstring>
 #include <cmath>
 
+#ifdef USE_BTHOME_RECEIVER_NIMBLE
+#include "host/ble_gap.h"
+#endif
+
 namespace esphome {
 namespace bthome_receiver {
 
 static const char *const TAG = "bthome_receiver";
+
+#ifdef USE_BTHOME_RECEIVER_NIMBLE
+// Static instance pointer for NimBLE callbacks
+BTHomeReceiverHub *BTHomeReceiverHub::instance_ = nullptr;
+#endif
 
 // BTHome v2 object type lookup table
 // Format: object_id -> (data_bytes, is_signed, factor, is_sensor, is_binary_sensor)
@@ -109,10 +118,59 @@ static const std::map<uint8_t, ObjectTypeInfo> OBJECT_TYPE_MAP = {
 
 void BTHomeReceiverHub::setup() {
   ESP_LOGCONFIG(TAG, "Setting up BTHome Receiver...");
+
+#ifdef USE_BTHOME_RECEIVER_NIMBLE
+  instance_ = this;
+
+  // Release classic BT memory (we only need BLE)
+  ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+
+  // Initialize BT controller
+  esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+  esp_err_t ret = esp_bt_controller_init(&bt_cfg);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "BT controller init failed: %s", esp_err_to_name(ret));
+    this->mark_failed();
+    return;
+  }
+
+  ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "BT controller enable failed: %s", esp_err_to_name(ret));
+    this->mark_failed();
+    return;
+  }
+
+  // Initialize NimBLE port
+  ret = nimble_port_init();
+  if (ret != ESP_OK) {
+    ESP_LOGE(TAG, "NimBLE port init failed: %s", esp_err_to_name(ret));
+    this->mark_failed();
+    return;
+  }
+
+  // Configure NimBLE host
+  ble_hs_cfg.sync_cb = nimble_on_sync_;
+  ble_hs_cfg.reset_cb = nimble_on_reset_;
+
+  // Start NimBLE host task
+  nimble_port_freertos_init(nimble_host_task_);
+
+  this->nimble_initialized_ = true;
+  ESP_LOGI(TAG, "NimBLE receiver initialized");
+#else
+  // Bluedroid setup is handled by esp32_ble_tracker
+  ESP_LOGI(TAG, "Bluedroid receiver initialized");
+#endif
 }
 
 void BTHomeReceiverHub::dump_config() {
   ESP_LOGCONFIG(TAG, "BTHome Receiver:");
+#ifdef USE_BTHOME_RECEIVER_NIMBLE
+  ESP_LOGCONFIG(TAG, "  BLE Stack: NimBLE");
+#else
+  ESP_LOGCONFIG(TAG, "  BLE Stack: Bluedroid");
+#endif
   ESP_LOGCONFIG(TAG, "  Registered Devices: %d", this->devices_.size());
   for (const auto &pair : this->devices_) {
     auto *device = pair.second;
@@ -120,10 +178,156 @@ void BTHomeReceiverHub::dump_config() {
   }
 }
 
+void BTHomeReceiverHub::loop() {
+  // No-op for Bluedroid (esp32_ble_tracker handles everything)
+  // No-op for NimBLE (scanning runs in NimBLE host task)
+}
+
 void BTHomeReceiverHub::register_device(BTHomeDevice *device) {
   this->devices_[device->get_mac_address()] = device;
   ESP_LOGD(TAG, "Registered device: %012llX", device->get_mac_address());
 }
+
+// ============================================================================
+// NimBLE Implementation
+// ============================================================================
+
+#ifdef USE_BTHOME_RECEIVER_NIMBLE
+
+void BTHomeReceiverHub::nimble_host_task_(void *param) {
+  ESP_LOGI(TAG, "NimBLE host task started");
+  nimble_port_run();
+  nimble_port_freertos_deinit();
+}
+
+void BTHomeReceiverHub::nimble_on_sync_() {
+  ESP_LOGI(TAG, "NimBLE host synchronized");
+  if (instance_ != nullptr) {
+    instance_->start_scanning_();
+  }
+}
+
+void BTHomeReceiverHub::nimble_on_reset_(int reason) {
+  ESP_LOGW(TAG, "NimBLE host reset, reason: %d", reason);
+}
+
+int BTHomeReceiverHub::nimble_gap_event_(struct ble_gap_event *event, void *arg) {
+  switch (event->type) {
+    case BLE_GAP_EVENT_DISC:
+      // Advertisement received
+      if (instance_ != nullptr) {
+        instance_->process_nimble_advertisement(&event->disc);
+      }
+      break;
+
+    case BLE_GAP_EVENT_DISC_COMPLETE:
+      // Discovery completed - restart scanning
+      ESP_LOGD(TAG, "Scan complete, restarting...");
+      if (instance_ != nullptr) {
+        instance_->start_scanning_();
+      }
+      break;
+
+    default:
+      break;
+  }
+  return 0;
+}
+
+void BTHomeReceiverHub::start_scanning_() {
+  if (this->scanning_) {
+    return;
+  }
+
+  struct ble_gap_disc_params disc_params;
+  memset(&disc_params, 0, sizeof(disc_params));
+
+  // Passive scanning (don't send scan requests)
+  disc_params.passive = 1;
+  // Filter duplicates disabled to receive all advertisements
+  disc_params.filter_duplicates = 0;
+  // Scan interval and window (in 0.625ms units)
+  // 160 = 100ms interval, 80 = 50ms window
+  disc_params.itvl = 160;
+  disc_params.window = 80;
+  // Limited discovery mode disabled
+  disc_params.limited = 0;
+
+  int rc = ble_gap_disc(BLE_OWN_ADDR_PUBLIC, BLE_HS_FOREVER, &disc_params, nimble_gap_event_, nullptr);
+  if (rc != 0) {
+    ESP_LOGE(TAG, "Failed to start scanning: %d", rc);
+    return;
+  }
+
+  this->scanning_ = true;
+  ESP_LOGI(TAG, "BLE scanning started");
+}
+
+void BTHomeReceiverHub::stop_scanning_() {
+  if (!this->scanning_) {
+    return;
+  }
+
+  ble_gap_disc_cancel();
+  this->scanning_ = false;
+  ESP_LOGI(TAG, "BLE scanning stopped");
+}
+
+void BTHomeReceiverHub::process_nimble_advertisement(const struct ble_gap_disc_desc *disc) {
+  // Convert address to uint64_t (little-endian)
+  uint64_t address = 0;
+  for (int i = 0; i < 6; i++) {
+    address |= static_cast<uint64_t>(disc->addr.val[i]) << (i * 8);
+  }
+
+  // Check if this device is registered
+  auto it = this->devices_.find(address);
+  if (it == this->devices_.end()) {
+    return;  // Not a registered device
+  }
+
+  // Parse advertisement data to find BTHome service data
+  const uint8_t *data = disc->data;
+  uint8_t data_len = disc->length_data;
+
+  // Parse AD structures
+  size_t pos = 0;
+  while (pos < data_len) {
+    if (pos + 1 > data_len) break;
+
+    uint8_t len = data[pos];
+    if (len == 0 || pos + 1 + len > data_len) break;
+
+    uint8_t ad_type = data[pos + 1];
+    const uint8_t *ad_data = &data[pos + 2];
+    uint8_t ad_data_len = len - 1;
+
+    // AD type 0x16 = Service Data - 16-bit UUID
+    if (ad_type == 0x16 && ad_data_len >= 2) {
+      // Extract 16-bit UUID (little-endian)
+      uint16_t uuid = ad_data[0] | (ad_data[1] << 8);
+
+      if (uuid == BTHOME_SERVICE_UUID) {
+        // Found BTHome service data
+        std::vector<uint8_t> service_data(ad_data + 2, ad_data + ad_data_len);
+        ESP_LOGV(TAG, "Processing BTHome advertisement from %012llX (%d bytes)",
+                 address, service_data.size());
+        it->second->parse_advertisement(service_data);
+        return;
+      }
+    }
+
+    pos += 1 + len;
+  }
+}
+
+#endif  // USE_BTHOME_RECEIVER_NIMBLE
+
+// ============================================================================
+// Bluedroid Implementation
+// ============================================================================
+
+#ifdef USE_BTHOME_RECEIVER_BLUEDROID
 
 bool BTHomeReceiverHub::parse_device(const esp32_ble_tracker::ESPBTDevice &device) {
   // Check if this device has BTHome service data (UUID 0xFCD2)
@@ -143,6 +347,8 @@ bool BTHomeReceiverHub::parse_device(const esp32_ble_tracker::ESPBTDevice &devic
   }
   return false;
 }
+
+#endif  // USE_BTHOME_RECEIVER_BLUEDROID
 
 // ============================================================================
 // BTHomeDevice Implementation

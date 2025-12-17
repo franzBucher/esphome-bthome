@@ -2,13 +2,15 @@ esphome:
   name: bthome-receiver
 
 esp32:
-  board: esp32dev
+  board: seeed_xiao_esp32s3
   framework:
     type: esp-idf
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  ap:
+    ssid: "BTHome-Receiver"
+
+captive_portal:
 
 external_components:
 - source:
@@ -16,14 +18,12 @@ external_components:
     path: components
   components: [ bthome_receiver ]
 
-api:
 logger:
+  level: DEBUG
 
-# Enable BLE scanning
-esp32_ble_tracker:
-
-# BTHome Receiver Hub
+# BTHome Receiver Hub with NimBLE (lightweight, standalone)
 bthome_receiver:
+  ble_stack: nimble
   devices:
   - mac_address: "AA:BB:CC:DD:EE:FF"
     name: "Living Room Sensor"

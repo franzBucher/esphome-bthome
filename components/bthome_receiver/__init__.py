@@ -5,21 +5,31 @@ Receives and decodes BTHome v2 BLE advertisements from external devices.
 Supports sensors, binary sensors, events (button/dimmer), and text data.
 
 Protocol specification: https://bthome.io/format/
+
+Supports two BLE stacks:
+- Bluedroid (default): Uses esp32_ble_tracker, compatible with other ESPHome BLE components
+- NimBLE: Lightweight standalone stack, smaller footprint but cannot coexist with other BLE components
 """
 
 import esphome.codegen as cg
-from esphome.components import esp32_ble_tracker
 import esphome.config_validation as cv
 from esphome.const import (
     CONF_ID,
     CONF_MAC_ADDRESS,
     CONF_NAME,
+    PLATFORM_ESP32,
 )
 from esphome import automation
+from esphome.core import CORE
+from esphome.components.esp32 import add_idf_sdkconfig_option
 
 CODEOWNERS = ["@esphome/core"]
-DEPENDENCIES = ["esp32_ble_tracker"]
 AUTO_LOAD = ["sensor", "binary_sensor", "text_sensor"]
+
+# BLE stack options
+CONF_BLE_STACK = "ble_stack"
+BLE_STACK_BLUEDROID = "bluedroid"
+BLE_STACK_NIMBLE = "nimble"
 
 CONF_DEVICES = "devices"
 CONF_ENCRYPTION_KEY = "encryption_key"
@@ -32,11 +42,9 @@ CONF_BUTTON_INDEX = "button_index"
 int8 = cg.global_ns.namespace("int8_t")
 
 bthome_receiver_ns = cg.esphome_ns.namespace("bthome_receiver")
-BTHomeReceiverHub = bthome_receiver_ns.class_(
-    "BTHomeReceiverHub",
-    cg.Component,
-    esp32_ble_tracker.ESPBTDeviceListener,
-)
+# Note: BTHomeReceiverHub class definition depends on BLE stack at runtime
+# For Bluedroid it inherits from ESPBTDeviceListener, for NimBLE it's standalone
+BTHomeReceiverHub = bthome_receiver_ns.class_("BTHomeReceiverHub", cg.Component)
 BTHomeDevice = bthome_receiver_ns.class_("BTHomeDevice", cg.Parented.template(BTHomeReceiverHub))
 BTHomeSensor = bthome_receiver_ns.class_("BTHomeSensor")
 BTHomeBinarySensor = bthome_receiver_ns.class_("BTHomeBinarySensor")
@@ -200,18 +208,90 @@ DEVICE_SCHEMA = cv.Schema(
     }
 )
 
-CONFIG_SCHEMA = cv.Schema(
+# Import esp32_ble_tracker at module level for schema extension
+# pylint: disable=wrong-import-position
+from esphome.components import esp32_ble_tracker
+
+# Base schema that applies to all modes
+_BASE_SCHEMA = cv.Schema(
     {
         cv.GenerateID(): cv.declare_id(BTHomeReceiverHub),
+        cv.Optional(CONF_BLE_STACK, default=BLE_STACK_BLUEDROID): cv.one_of(
+            BLE_STACK_BLUEDROID, BLE_STACK_NIMBLE, lower=True
+        ),
         cv.Optional(CONF_DEVICES, default=[]): cv.ensure_list(DEVICE_SCHEMA),
+        # For Bluedroid mode: optional esp32_ble_tracker ID (auto-assigned if present)
+        cv.Optional(esp32_ble_tracker.CONF_ESP32_BLE_ID): cv.use_id(
+            esp32_ble_tracker.ESP32BLETracker
+        ),
     }
-).extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA).extend(cv.COMPONENT_SCHEMA)
+).extend(cv.COMPONENT_SCHEMA)
+
+
+def _final_validate(config):
+    """Final validation based on BLE stack."""
+    ble_stack = config.get(CONF_BLE_STACK, BLE_STACK_BLUEDROID)
+
+    if ble_stack == BLE_STACK_NIMBLE:
+        if CORE.using_arduino:
+            raise cv.Invalid("NimBLE BLE stack requires ESP-IDF framework, not Arduino")
+    return config
+
+
+CONFIG_SCHEMA = cv.All(
+    _BASE_SCHEMA,
+    _final_validate,
+    cv.only_on([PLATFORM_ESP32]),
+)
 
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-    await esp32_ble_tracker.register_ble_device(var, config)
+
+    ble_stack = config.get(CONF_BLE_STACK, BLE_STACK_BLUEDROID)
+
+    if ble_stack == BLE_STACK_NIMBLE:
+        # NimBLE stack configuration
+        cg.add_define("USE_BTHOME_RECEIVER_NIMBLE")
+
+        # Enable NimBLE in ESP-IDF
+        add_idf_sdkconfig_option("CONFIG_BT_ENABLED", True)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_ENABLED", True)
+        add_idf_sdkconfig_option("CONFIG_BT_CONTROLLER_ENABLED", True)
+        add_idf_sdkconfig_option("CONFIG_BT_BLUEDROID_ENABLED", False)
+
+        # Configure NimBLE roles - only observer needed for receiving
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_ROLE_OBSERVER", True)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_ROLE_BROADCASTER", False)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_ROLE_CENTRAL", False)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_ROLE_PERIPHERAL", False)
+
+        # Use tinycrypt for smaller footprint
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_CRYPTO_STACK_MBEDTLS", False)
+
+        # Disable privacy/security features we don't need (avoids SM requirement)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_SECURITY_ENABLE", False)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_SM_LEGACY", False)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_SM_SC", False)
+
+        # NimBLE memory optimization
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_MAX_CONNECTIONS", 0)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_MAX_BONDS", 0)
+        add_idf_sdkconfig_option("CONFIG_BT_NIMBLE_PINNED_TO_CORE", 0)
+    else:
+        # Bluedroid stack - use esp32_ble_tracker
+        cg.add_define("USE_BTHOME_RECEIVER_BLUEDROID")
+        # Import esp32_ble_tracker only when using Bluedroid
+        # pylint: disable=import-outside-toplevel
+        from esphome.components import esp32_ble_tracker
+
+        # Register with the global BLE tracker (requires esp32_ble_tracker: in config)
+        # Get the tracker ID from config or use the default
+        tracker_id = config.get(esp32_ble_tracker.CONF_ESP32_BLE_ID)
+        if tracker_id is not None:
+            parent = await cg.get_variable(tracker_id)
+            cg.add(parent.register_listener(var))
 
     for device_conf in config.get(CONF_DEVICES, []):
         device_var = cg.new_Pvariable(device_conf[CONF_ID], var)
