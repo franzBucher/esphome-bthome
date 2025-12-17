@@ -9,6 +9,7 @@
         "astro": "^4.16.0",
         "astro-mermaid": "^1.2.0",
         "sharp": "^0.32.5",
+        "starlight-theme-next": "^0.3.3",
       },
     },
   },
@@ -1152,6 +1153,8 @@
     "space-separated-tokens": ["space-separated-tokens@2.0.2", "", {}, "sha512-PEGlAwrG8yXGXRjW32fGbg66JAlOAwbObuqVoJpv/mRgoWDQfgH1wDPvtzWyUSNAXBGSk8h755YDbbcEy3SH2Q=="],
 
     "sprintf-js": ["sprintf-js@1.0.3", "", {}, "sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g=="],
+
+    "starlight-theme-next": ["starlight-theme-next@0.3.3", "", { "peerDependencies": { "@astrojs/starlight": ">=0.34" } }, "sha512-V8+tSvbSZKopt1nG5vEnoFiEEc6xqs11Ombbd0awUfm+OzU4+mZOK0VtuZxBTWZduwX3MbmB8j7f+o0GyH22Xw=="],
 
     "stdin-discarder": ["stdin-discarder@0.2.2", "", {}, "sha512-UhDfHmA92YAlNnCfhmq0VeNL5bDbiZGg7sZ2IvPsXubGkiNa9EC+tUTsjBRsYUAz87btI6/1wf4XoVvQ3uRnmQ=="],
 

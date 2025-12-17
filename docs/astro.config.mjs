@@ -1,5 +1,6 @@
 import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
+import starlightThemeNext from 'starlight-theme-next';
 import mermaid from 'astro-mermaid';
 
 export default defineConfig({
@@ -11,6 +12,7 @@ export default defineConfig({
       autoTheme: true,
     }),
     starlight({
+      plugins: [starlightThemeNext()],
       title: 'ESPHome BTHome',
       description: 'BTHome v2 BLE Protocol Component for ESPHome',
       social: {
