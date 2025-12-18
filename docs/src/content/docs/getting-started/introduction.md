@@ -39,20 +39,22 @@ This component provides:
 
 ## How It Works
 
-```
-                                          ┌─────────────────┐
-                                     ┌──► │  Home Assistant │
-┌─────────────┐     BLE Advertisement│    │  (BTHome Int.)  │
-│  ESP32 or   │ ─────────────────────┤    └─────────────────┘
-│   nRF52     │     BTHome v2 Format │    ┌─────────────────┐
-└─────────────┘                      └──► │  Shelly Devices │
-      │                                   │  (Direct Auto.) │
-      │ Reads sensors                     └─────────────────┘
-      ▼
-┌─────────────┐
-│  BME280,    │
-│  PIR, etc.  │
-└─────────────┘
+```mermaid
+flowchart LR
+    subgraph Sensors
+        S[BME280, PIR, etc.]
+    end
+    subgraph Device
+        D[ESP32 or nRF52]
+    end
+    subgraph Receivers
+        HA[Home Assistant]
+        SH[Shelly Devices]
+    end
+
+    S -->|Reads sensors| D
+    D -->|BTHome v2 BLE| HA
+    D -->|BTHome v2 BLE| SH
 ```
 
 The component:

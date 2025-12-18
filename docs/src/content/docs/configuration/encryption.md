@@ -167,11 +167,13 @@ BTHome uses AES-128-CCM encryption with:
 - **Counter**: Prevents replay attacks
 
 The encrypted packet structure:
-```
-┌─────────┬─────────┬──────────┬─────────┐
-│ Device  │ Counter │ Encrypted│   MIC   │
-│  Info   │  (4B)   │  Data    │  (4B)   │
-└─────────┴─────────┴──────────┴─────────┘
+
+```mermaid
+packet-beta
+  0-7: "Device Info"
+  8-39: "Counter (4B)"
+  40-71: "Encrypted Data"
+  72-103: "MIC (4B)"
 ```
 
 ## Troubleshooting
