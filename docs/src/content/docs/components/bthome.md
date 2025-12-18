@@ -3,7 +3,7 @@ title: BTHome Component
 description: Configuration reference for the BTHome component
 ---
 
-The BTHome component is the core of ESPHome BTHome, providing BLE broadcasting capabilities for ESP32 and nRF52 platforms.
+The BTHome component is the core of BTHome for ESPHome, providing BLE broadcasting capabilities for ESP32 and nRF52 platforms.
 
 ## Platform Support
 

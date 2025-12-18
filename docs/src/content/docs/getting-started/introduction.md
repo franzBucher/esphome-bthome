@@ -1,9 +1,9 @@
 ---
-title: Introduction
+title: BTHome for ESPHome
 description: BTHome v2 BLE Protocol Component for ESPHome
 ---
 
-**ESPHome BTHome** is a component that enables your ESP32 or nRF52 devices to broadcast sensor data using the [BTHome v2 protocol](https://bthome.io/). This allows seamless integration with Home Assistant and other BTHome-compatible receivers.
+**BTHome for ESPHome** is a component that enables your ESP32 or nRF52 devices to broadcast sensor data over Bluetooth Low Energy using the [BTHome v2 protocol](https://bthome.io/). This allows seamless integration with Home Assistant auto-discovery and other BTHome-compatible receivers, including **Shelly devices** for direct device-to-device automations without requiring a hub.
 
 ## What is BTHome?
 
@@ -26,6 +26,7 @@ This component provides:
 - **Immediate advertising** - Trigger instant updates on sensor changes
 - **Configurable TX power** - Optimize range vs battery life
 - **Home Assistant auto-discovery** - No manual configuration needed
+- **Shelly device compatibility** - Direct device-to-device automations without a hub
 
 ## Supported Platforms
 
@@ -39,12 +40,14 @@ This component provides:
 ## How It Works
 
 ```
-┌─────────────┐     BLE Advertisement     ┌─────────────────┐
-│  ESP32 or   │ ───────────────────────► │  Home Assistant │
-│   nRF52     │     BTHome v2 Format      │  (BTHome Int.)  │
-└─────────────┘                           └─────────────────┘
-      │
-      │ Reads sensors
+                                          ┌─────────────────┐
+                                     ┌──► │  Home Assistant │
+┌─────────────┐     BLE Advertisement│    │  (BTHome Int.)  │
+│  ESP32 or   │ ─────────────────────┤    └─────────────────┘
+│   nRF52     │     BTHome v2 Format │    ┌─────────────────┐
+└─────────────┘                      └──► │  Shelly Devices │
+      │                                   │  (Direct Auto.) │
+      │ Reads sensors                     └─────────────────┘
       ▼
 ┌─────────────┐
 │  BME280,    │
@@ -57,6 +60,7 @@ The component:
 2. Encodes the data according to BTHome v2 specification
 3. Broadcasts the data via BLE advertisements
 4. Home Assistant's BTHome integration automatically discovers and displays the sensors
+5. Shelly devices can receive broadcasts directly for local automations
 
 ## Next Steps
 

@@ -13,7 +13,7 @@ export default defineConfig({
     }),
     starlight({
       plugins: [starlightThemeNext()],
-      title: 'ESPHome BTHome',
+      title: 'BTHome for ESPHome',
       description: 'BTHome v2 BLE Protocol Component for ESPHome',
       social: [
         { icon: 'github', label: 'GitHub', href: 'https://github.com/dz0ny/esphome-bthome' },
