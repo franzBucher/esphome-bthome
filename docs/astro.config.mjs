@@ -62,7 +62,6 @@ export default defineConfig({
       editLink: {
         baseUrl: 'https://github.com/dz0ny/esphome-bthome/edit/main/docs/',
       },
-      customCss: ['./src/styles/custom.css'],
     }),
   ],
 });
