@@ -386,14 +386,17 @@ void BTHome::build_advertisement_data_() {
   // Set service data length
   this->adv_data_[service_data_len_pos] = pos - service_data_len_pos - 1;
 
-  // Add Complete Local Name if it fits
+  // Add device name if it fits (complete or shortened)
   if (!this->device_name_.empty()) {
+    size_t available = MAX_BLE_ADVERTISEMENT_SIZE - pos - 2;  // 2 bytes for length + type
     size_t name_len = this->device_name_.length();
-    if (pos + 2 + name_len <= MAX_BLE_ADVERTISEMENT_SIZE) {
-      this->adv_data_[pos++] = name_len + 1;  // Length (type + name)
-      this->adv_data_[pos++] = 0x09;          // Type: Complete Local Name
-      memcpy(this->adv_data_ + pos, this->device_name_.c_str(), name_len);
-      pos += name_len;
+    if (available >= 1) {  // At least 1 character must fit
+      bool is_complete = (name_len <= available);
+      size_t actual_len = is_complete ? name_len : available;
+      this->adv_data_[pos++] = actual_len + 1;  // Length (type + name)
+      this->adv_data_[pos++] = is_complete ? 0x09 : 0x08;  // Complete (0x09) or Shortened (0x08)
+      memcpy(this->adv_data_ + pos, this->device_name_.c_str(), actual_len);
+      pos += actual_len;
     }
   }
 
@@ -465,6 +468,14 @@ void BTHome::start_advertising_() {
   if (rc != 0) {
     ESP_LOGE(TAG, "ble_gap_adv_set_data failed: %d", rc);
     return;
+  }
+
+  // Set scan response data (contains device name)
+  if (this->scan_rsp_data_len_ > 0) {
+    rc = ble_gap_adv_rsp_set_data(this->scan_rsp_data_, this->scan_rsp_data_len_);
+    if (rc != 0) {
+      ESP_LOGW(TAG, "ble_gap_adv_rsp_set_data failed: %d", rc);
+    }
   }
 
   // Configure non-connectable advertising parameters
