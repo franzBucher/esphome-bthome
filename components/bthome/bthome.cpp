@@ -184,6 +184,9 @@ void BTHome::setup() {
         this->trigger_immediate_advertising_(i, false);
       } else {
         this->data_changed_ = true;
+#ifdef USE_ESP32
+        this->enable_loop();
+#endif
       }
     });
   }
@@ -197,6 +200,9 @@ void BTHome::setup() {
         this->trigger_immediate_advertising_(i, true);
       } else {
         this->data_changed_ = true;
+#ifdef USE_ESP32
+        this->enable_loop();
+#endif
       }
     });
   }
@@ -234,6 +240,9 @@ void BTHome::loop() {
     this->stop_advertising_();
     this->build_advertisement_data_();
     this->start_advertising_();
+#ifdef USE_ESP32
+    this->disable_loop();
+#endif
   }
 }
 
