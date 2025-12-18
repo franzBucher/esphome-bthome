@@ -1,6 +1,7 @@
 ---
 title: ESPHome BTHome
 description: BTHome v2 BLE Protocol Component for ESPHome
+template: splash
 hero:
   tagline: Broadcast sensor data over Bluetooth Low Energy with Home Assistant auto-discovery
   actions:
@@ -11,48 +12,5 @@ hero:
     - text: View on GitHub
       link: https://github.com/dz0ny/esphome-bthome
       icon: external
+redirect: ./getting-started/introduction/
 ---
-
-import { Card, CardGrid } from '@astrojs/starlight/components';
-
-## Features
-
-<CardGrid stagger>
-  <Card title="BTHome v2 Protocol" icon="approve-check">
-    Full compliance with the BTHome v2 specification for seamless Home Assistant integration.
-  </Card>
-  <Card title="Multi-Platform" icon="laptop">
-    Supports ESP32 (ESP-IDF) and nRF52840 (Zephyr) platforms.
-  </Card>
-  <Card title="60+ Sensor Types" icon="list-format">
-    Temperature, humidity, pressure, CO2, power, and many more sensor types.
-  </Card>
-  <Card title="AES Encryption" icon="approve-check-circle">
-    Optional AES-CCM encryption to secure your sensor data.
-  </Card>
-</CardGrid>
-
-## Quick Example
-
-```yaml
-external_components:
-  - source:
-      type: git
-      url: https://github.com/dz0ny/esphome-bthome
-      ref: main
-    components: [bthome]
-
-sensor:
-  - platform: bme280_i2c
-    temperature:
-      id: temperature
-    humidity:
-      id: humidity
-
-bthome:
-  sensors:
-    - type: temperature
-      id: temperature
-    - type: humidity
-      id: humidity
-```
