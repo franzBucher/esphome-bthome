@@ -16,6 +16,10 @@ on:
       - '.github/workflows/build-examples.yml'
   workflow_dispatch:
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-esp32:
     name: Build ${{ matrix.config }}
