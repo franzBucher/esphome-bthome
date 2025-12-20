@@ -291,20 +291,24 @@ void BTHomeReceiverHub::dump_config() {
   ESP_LOGCONFIG(TAG, "  Registered Devices: %d", this->devices_.size());
   for (const auto &pair : this->devices_) {
     auto *device = pair.second;
-    ESP_LOGCONFIG(TAG, "    MAC: %012llX", device->get_mac_address());
+    uint64_t addr = device->get_mac_address();
+    ESP_LOGCONFIG(TAG, "    MAC: %02X:%02X:%02X:%02X:%02X:%02X",
+                  (uint8_t)((addr >> 40) & 0xFF), (uint8_t)((addr >> 32) & 0xFF),
+                  (uint8_t)((addr >> 24) & 0xFF), (uint8_t)((addr >> 16) & 0xFF),
+                  (uint8_t)((addr >> 8) & 0xFF), (uint8_t)(addr & 0xFF));
   }
 }
 
 void BTHomeReceiverHub::dump_advertisement_(uint64_t address, const uint8_t *data, size_t len) {
-  // Format MAC address
+  // Format MAC address in standard format (MSB first, matches ESPHome config format)
   char mac_str[18];
   snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
-           (uint8_t)(address & 0xFF),
-           (uint8_t)((address >> 8) & 0xFF),
-           (uint8_t)((address >> 16) & 0xFF),
-           (uint8_t)((address >> 24) & 0xFF),
+           (uint8_t)((address >> 40) & 0xFF),
            (uint8_t)((address >> 32) & 0xFF),
-           (uint8_t)((address >> 40) & 0xFF));
+           (uint8_t)((address >> 24) & 0xFF),
+           (uint8_t)((address >> 16) & 0xFF),
+           (uint8_t)((address >> 8) & 0xFF),
+           (uint8_t)(address & 0xFF));
 
   if (len < 1) {
     return;
@@ -547,9 +551,18 @@ void BTHomeReceiverHub::process_nimble_advertisement(const struct ble_gap_disc_d
         auto it = this->devices_.find(address);
         if (it != this->devices_.end()) {
           std::vector<uint8_t> service_data_vec(service_data, service_data + service_data_len);
-          ESP_LOGV(TAG, "Processing BTHome advertisement from %012llX (%d bytes)",
-                   address, service_data_vec.size());
+          ESP_LOGD(TAG, "Processing BTHome data from registered device %02X:%02X:%02X:%02X:%02X:%02X (%d bytes)",
+                   (uint8_t)((address >> 40) & 0xFF), (uint8_t)((address >> 32) & 0xFF),
+                   (uint8_t)((address >> 24) & 0xFF), (uint8_t)((address >> 16) & 0xFF),
+                   (uint8_t)((address >> 8) & 0xFF), (uint8_t)(address & 0xFF),
+                   (int)service_data_vec.size());
           it->second->parse_advertisement(service_data_vec);
+        } else if (!this->dump_advertisements_) {
+          // Log unregistered devices only when not in dump mode (to avoid spam)
+          ESP_LOGV(TAG, "Ignoring BTHome from unregistered device %02X:%02X:%02X:%02X:%02X:%02X",
+                   (uint8_t)((address >> 40) & 0xFF), (uint8_t)((address >> 32) & 0xFF),
+                   (uint8_t)((address >> 24) & 0xFF), (uint8_t)((address >> 16) & 0xFF),
+                   (uint8_t)((address >> 8) & 0xFF), (uint8_t)(address & 0xFF));
         }
         return;
       }

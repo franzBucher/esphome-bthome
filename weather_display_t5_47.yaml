@@ -6,8 +6,8 @@
 substitutions:
   device_name: weather-display
   friendly_name: Weather Display
-  # BTHome weather station MAC address
-  weather_station_mac: "4E:E3:D1:5F:B9:08"
+  # BTHome weather station MAC address (corrected byte order)
+  weather_station_mac: "08:B9:5F:D1:E3:4E"
 
 esphome:
   name: ${device_name}
@@ -204,11 +204,11 @@ sensor:
   lambda: return id(rain_daily).state;
   update_interval: 10s
 
-# Solar power calculated from illuminance (1 W/m² ≈ 120 lux)
+# Solar power calculated from illuminance (1 W/m2 ≈ 120 lux)
 - platform: template
   id: solar_power
   name: "Solar Power"
-  unit_of_measurement: "W/m²"
+  unit_of_measurement: "W/m2"
   accuracy_decimals: 0
   icon: "mdi:solar-power"
   lambda: |-
@@ -364,9 +364,9 @@ display:
     it.print(main_x + 180, sec_y, id(icon_mdi), TextAlign::TOP_LEFT, ICON_SOLAR);
     it.print(main_x + 235, sec_y + 5, id(font_label), TextAlign::TOP_LEFT, "Solar");
     if (id(solar_power).has_state() && !std::isnan(id(solar_power).state)) {
-      it.printf(main_x + 235, sec_y + 30, id(font_unit), TextAlign::TOP_LEFT, "%.0f W/m²", id(solar_power).state);
+      it.printf(main_x + 235, sec_y + 30, id(font_unit), TextAlign::TOP_LEFT, "%.0f W/m2", id(solar_power).state);
     } else {
-      it.print(main_x + 235, sec_y + 30, id(font_unit), TextAlign::TOP_LEFT, "-- W/m²");
+      it.print(main_x + 235, sec_y + 30, id(font_unit), TextAlign::TOP_LEFT, "-- W/m2");
     }
 
     // Wind Gusts
