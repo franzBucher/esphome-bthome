@@ -22,6 +22,7 @@ from esphome.const import (
 from esphome import automation
 from esphome.core import CORE
 from esphome.components.esp32 import add_idf_sdkconfig_option
+from esphome.components import esp32_ble_tracker
 
 CODEOWNERS = ["@esphome/core"]
 AUTO_LOAD = ["sensor", "binary_sensor", "text_sensor"]
@@ -42,7 +43,7 @@ CONF_DUMP_INTERVAL = "dump_interval"
 bthome_receiver_ns = cg.esphome_ns.namespace("bthome_receiver")
 # Note: BTHomeReceiverHub class definition depends on BLE stack at runtime
 # For Bluedroid it inherits from ESPBTDeviceListener, for NimBLE it's standalone
-BTHomeReceiverHub = bthome_receiver_ns.class_("BTHomeReceiverHub", cg.Component)
+BTHomeReceiverHub = bthome_receiver_ns.class_("BTHomeReceiverHub", esp32_ble_tracker.ESPBTDeviceListener, cg.PollingComponent)
 BTHomeDevice = bthome_receiver_ns.class_("BTHomeDevice", cg.Parented.template(BTHomeReceiverHub))
 BTHomeSensor = bthome_receiver_ns.class_("BTHomeSensor")
 BTHomeBinarySensor = bthome_receiver_ns.class_("BTHomeBinarySensor")
@@ -213,21 +214,22 @@ DEVICE_SCHEMA = cv.Schema(
 from esphome.components import esp32_ble_tracker
 
 # Base schema that applies to all modes
-_BASE_SCHEMA = cv.Schema(
-    {
-        cv.GenerateID(): cv.declare_id(BTHomeReceiverHub),
-        cv.Optional(CONF_BLE_STACK, default=BLE_STACK_BLUEDROID): cv.one_of(
-            BLE_STACK_BLUEDROID, BLE_STACK_NIMBLE, lower=True
-        ),
-        cv.Optional(CONF_DEVICES, default=[]): cv.ensure_list(DEVICE_SCHEMA),
-        # For Bluedroid mode: optional esp32_ble_tracker ID (auto-assigned if present)
-        cv.Optional(esp32_ble_tracker.CONF_ESP32_BLE_ID): cv.use_id(
-            esp32_ble_tracker.ESP32BLETracker
-        ),
-        # Interval for periodic dump of all detected devices (0 = disabled)
-        cv.Optional(CONF_DUMP_INTERVAL): cv.positive_time_period_milliseconds,
-    }
-).extend(cv.COMPONENT_SCHEMA)
+# _BASE_SCHEMA = cv.Schema(
+#     {
+#         cv.GenerateID(): cv.declare_id(BTHomeReceiverHub),
+#         cv.Optional(CONF_BLE_STACK, default=BLE_STACK_BLUEDROID): cv.one_of(
+#             BLE_STACK_BLUEDROID, BLE_STACK_NIMBLE, lower=True
+#         ),
+#         cv.Optional(CONF_DEVICES, default=[]): cv.ensure_list(DEVICE_SCHEMA),
+#         # For Bluedroid mode: optional esp32_ble_tracker ID (auto-assigned if present)
+#         cv.Optional(esp32_ble_tracker.CONF_ESP32_BLE_ID): cv.use_id(
+#             esp32_ble_tracker.ESP32BLETracker
+#         ),
+#         # Interval for periodic dump of all detected devices (0 = disabled)
+#         cv.Optional(CONF_DUMP_INTERVAL): cv.positive_time_period_milliseconds,
+#     }
+# ).extend(cv.COMPONENT_SCHEMA)
+
 
 
 def _final_validate(config):
@@ -241,16 +243,34 @@ def _final_validate(config):
 
 
 CONFIG_SCHEMA = cv.All(
-    _BASE_SCHEMA,
     _final_validate,
     cv.only_on([PLATFORM_ESP32]),
+
+    cv.Schema(
+        {
+            cv.GenerateID(): cv.declare_id(BTHomeReceiverHub),
+            cv.Optional(CONF_BLE_STACK, default=BLE_STACK_BLUEDROID): cv.one_of(
+                BLE_STACK_BLUEDROID, BLE_STACK_NIMBLE, lower=True
+            ),
+            cv.Optional(CONF_DEVICES, default=[]): cv.ensure_list(DEVICE_SCHEMA),
+            # For Bluedroid mode: optional esp32_ble_tracker ID (auto-assigned if present)
+            cv.Optional(esp32_ble_tracker.CONF_ESP32_BLE_ID): cv.use_id(
+                esp32_ble_tracker.ESP32BLETracker
+            ),
+            # Interval for periodic dump of all detected devices (0 = disabled)
+            cv.Optional(CONF_DUMP_INTERVAL): cv.positive_time_period_milliseconds,
+        }
+    )
+    .extend(esp32_ble_tracker.ESP_BLE_DEVICE_SCHEMA)
+    .extend(cv.COMPONENT_SCHEMA),
 )
 
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
-
+    await esp32_ble_tracker.register_ble_device(var, config)
+    
     # Set dump interval for periodic summary (0 = disabled)
     if CONF_DUMP_INTERVAL in config:
         cg.add(var.set_dump_interval(config[CONF_DUMP_INTERVAL]))
@@ -296,7 +316,6 @@ async def to_code(config):
         cg.add_define("USE_ESP32_BLE_UUID")
         # Import esp32_ble_tracker only when using Bluedroid
         # pylint: disable=import-outside-toplevel
-        from esphome.components import esp32_ble_tracker
 
         # Register with the global BLE tracker (requires esp32_ble_tracker: in config)
         # Get the tracker ID from config or use the default
