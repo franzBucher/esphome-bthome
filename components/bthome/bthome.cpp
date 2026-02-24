@@ -144,7 +144,7 @@ void BTHome::setup() {
       .channel_map = ADV_CHNL_ALL,
       .adv_filter_policy = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
   };
-
+  this->set_manufacturer_id(this->manufacturer_id_); 
   global_ble->advertising_register_raw_advertisement_callback([this](bool advertise) {
     this->advertising_ = advertise;
     if (advertise) {
